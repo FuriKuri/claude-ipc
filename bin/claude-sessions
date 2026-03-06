@@ -3,8 +3,8 @@ set -euo pipefail
 
 LAYOUT="tiled"
 SESSION_NAME="claude-multi"
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECTS=()
+SESSIONS_DIR="${HOME}/.claude-ipc"
 
 # Parse args
 for arg in "$@"; do
@@ -13,12 +13,13 @@ for arg in "$@"; do
     --name=*)    SESSION_NAME="${arg#--name=}" ;;
     --help|-h)
       cat <<'EOF'
-claude-sessions — Start multiple Claude Code sessions in tmux
+claude-sessions — Launch multiple Claude Code instances in tmux
 
 Usage: claude-sessions [options] <dir1> [dir2] [dir3] ...
 
-Each directory gets its own tmux pane with a registered IPC session.
-Session IDs are derived from directory names (e.g. ~/Projects/api → api).
+Each directory gets its own tmux pane running Claude Code.
+Session IDs are derived from directory names (e.g. ~/Projects/api -> api).
+Use /ipc-trigger inside Claude to send prompts to other panes.
 
 Options:
   --layout=tiled|vertical|horizontal   Pane layout (default: tiled)
@@ -27,7 +28,7 @@ Options:
 Examples:
   claude-sessions ~/Projects/api ~/Projects/frontend
   claude-sessions --layout=vertical ./backend ./frontend ./shared
-  claude-sessions .    # Single session in current directory
+  claude-sessions .
 EOF
       exit 0
       ;;
@@ -38,7 +39,6 @@ done
 
 if (( ${#PROJECTS[@]} == 0 )); then
   echo "Usage: claude-sessions [options] <dir1> [dir2] ..."
-  echo "Run 'claude-sessions --help' for details."
   exit 1
 fi
 
@@ -50,7 +50,6 @@ SESSION_IDS=()
 for dir in "${PROJECTS[@]}"; do
   resolved="$(cd "$dir" 2>/dev/null && pwd)" || { echo "Directory not found: $dir"; exit 1; }
   RESOLVED_DIRS+=("$resolved")
-  # Session ID = basename of directory
   sid="$(basename "$resolved")"
   # Deduplicate by appending number if needed
   count=0
@@ -62,13 +61,14 @@ for dir in "${PROJECTS[@]}"; do
   SESSION_IDS+=("$sid")
 done
 
-# Ensure IPC directories exist
-mkdir -p "${HOME}/.claude-ipc"/{inbox,sessions,processed}
+# Clean up old session state
+mkdir -p "$SESSIONS_DIR"
+rm -f "$SESSIONS_DIR"/*.pane
 
-# Kill existing session if present
+# Kill existing tmux session if present
 tmux kill-session -t "$SESSION_NAME" 2>/dev/null || true
 
-# Create session with first pane
+# Create tmux session with first pane
 tmux new-session -d -s "$SESSION_NAME" -x 200 -y 50
 
 # Create additional panes
@@ -80,52 +80,35 @@ for (( i=1; i<COUNT; i++ )); do
   esac
 done
 
-# Apply layout
 tmux select-layout -t "$SESSION_NAME" "$LAYOUT" 2>/dev/null || tmux select-layout -t "$SESSION_NAME" tiled
 
-# Enable pane border status
+# Enable pane border labels
 tmux set-option -t "$SESSION_NAME" pane-border-status top 2>/dev/null || true
 tmux set-option -t "$SESSION_NAME" pane-border-format " #{pane_index}: #{pane_title} " 2>/dev/null || true
 
-# Configure each pane
+# Configure each pane: set env, write pane mapping, start claude
 for (( i=0; i<COUNT; i++ )); do
   sid="${SESSION_IDS[$i]}"
   dir="${RESOLVED_DIRS[$i]}"
   pane_target="${SESSION_NAME}:0.${i}"
 
-  # Set pane title
   tmux select-pane -t "$pane_target" -T "${sid}" 2>/dev/null || true
 
-  # Set environment, cd to project, register
+  # Write pane mapping for /ipc-trigger
+  echo "$pane_target" > "${SESSIONS_DIR}/${sid}.pane"
+
+  # Set environment and start claude
   tmux send-keys -t "$pane_target" "export CLAUDE_IPC_SESSION='${sid}'" Enter
-  tmux send-keys -t "$pane_target" "export PATH=\"${SCRIPT_DIR}:\${PATH}\"" Enter
-  tmux send-keys -t "$pane_target" "cd '${dir}'" Enter
-  tmux send-keys -t "$pane_target" "claude-ipc register '${sid}' '${dir}'" Enter
-  tmux send-keys -t "$pane_target" "clear" Enter
+  tmux send-keys -t "$pane_target" "cd '${dir}' && claude" Enter
 done
-
-# Print cheat sheet in first pane
-id_list=""
-for (( i=0; i<COUNT; i++ )); do
-  id_list+="  ${SESSION_IDS[$i]}  →  ${RESOLVED_DIRS[$i]}"$'\n'
-done
-
-tmux send-keys -t "${SESSION_NAME}:0.0" "cat <<'CHEAT'
-
-=== Claude IPC ===
-
-Sessions:
-${id_list}
-Slash commands:
-  /ipc-status            Show sessions & inboxes
-  /ipc-send <id> <msg>   Send message/task
-  /ipc-read              Read inbox
-  /ipc-ask <id> <q>      Ask and wait for answer
-  /ipc-trigger <id> <p>  Type prompt into another pane
-
-CLI: claude-ipc send|read|peek|list|sessions|clear|watch|reset
-
-CHEAT" Enter
 
 echo "Starting '${SESSION_NAME}' with ${COUNT} panes..."
+echo ""
+for (( i=0; i<COUNT; i++ )); do
+  echo "  ${SESSION_IDS[$i]}  ->  ${RESOLVED_DIRS[$i]}"
+done
+echo ""
+echo "Use /ipc-trigger <session-id> <prompt> inside Claude to communicate."
+echo ""
+
 tmux attach -t "$SESSION_NAME"
