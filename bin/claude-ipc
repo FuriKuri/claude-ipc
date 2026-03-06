@@ -36,25 +36,15 @@ get_self_pane() {
   tmux display-message -p '#{pane_id}' 2>/dev/null || echo ""
 }
 
-# List all tmux panes running Claude, excluding self
+# List all tmux panes excluding self
 list_panes() {
   local self
   self=$(get_self_pane)
 
-  local found=false
-  tmux list-panes -a -F '#{pane_id} #{pane_current_command} #{pane_current_path}' | while read -r id cmd path; do
+  tmux list-panes -a -F '#{pane_id} #{pane_current_path}' | while read -r id path; do
     [ "$id" = "$self" ] && continue
-    case "$cmd" in
-      *claude*|*node*) ;;  # claude or node (Claude Code runs as node)
-      *) continue ;;
-    esac
     echo "$(basename "$path")  ->  $path  ($id)"
-    found=true
   done
-
-  if [ "$found" = false ]; then
-    echo "(no other Claude panes found)"
-  fi
 }
 
 # Find pane IDs matching a target basename
@@ -63,12 +53,8 @@ find_target_panes() {
   local self
   self=$(get_self_pane)
 
-  tmux list-panes -a -F '#{pane_id} #{pane_current_command} #{pane_current_path}' | while read -r id cmd path; do
+  tmux list-panes -a -F '#{pane_id} #{pane_current_path}' | while read -r id path; do
     [ "$id" = "$self" ] && continue
-    case "$cmd" in
-      *claude*|*node*) ;;
-      *) continue ;;
-    esac
     if [ "$(basename "$path")" = "$target" ]; then
       echo "$id $path"
     fi
