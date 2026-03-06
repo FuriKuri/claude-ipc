@@ -14,9 +14,7 @@ Run multiple Claude Code sessions in tmux and let them trigger each other via ke
 │ │ /ipc-trigger frontend ──────┼─> tmux send-keys│
 │ └─────────────┘  └─────────────┘                 │
 │                                                  │
-│ ~/.claude-ipc/                                   │
-│ ├── api.pane        # tmux pane target           │
-│ └── frontend.pane   # tmux pane target           │
+│ Discovery: tmux list-panes (no state files)      │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -56,9 +54,9 @@ Without arguments, `/ipc-trigger` lists available sessions.
 
 ## How it works
 
-1. `claude-sessions` creates tmux panes and writes pane targets to `~/.claude-ipc/<session-id>.pane`
-2. `/ipc-trigger` reads the pane target and uses `tmux send-keys` to type into the target pane
-3. That's it. No message queues, no inbox, no polling — just keystrokes.
+1. `claude-sessions` creates tmux panes, each running Claude Code in its own directory
+2. `/ipc-trigger` discovers sibling panes via `tmux list-panes`, matches by directory basename, and uses `tmux send-keys`
+3. No state files, no message queues, no polling — just tmux and keystrokes
 
 ## CLI Reference
 
@@ -84,7 +82,7 @@ export PATH="${HOME}/.local/bin:${PATH}"  # add to .zshrc
 
 **"/ipc-trigger: session not found"**
 ```bash
-ls ~/.claude-ipc/*.pane    # check registered sessions
+tmux list-panes -F '#{pane_current_path}'    # check panes in current window
 ```
 
 **tmux session already exists**

@@ -17,10 +17,6 @@ mkdir -p "${HOME}/.claude/commands"
 cp "${SCRIPT_DIR}/commands/ipc-trigger.md" "${HOME}/.claude/commands/"
 echo "[ok] /ipc-trigger installed to ~/.claude/commands"
 
-# Create session state directory
-mkdir -p "${HOME}/.claude-ipc"
-echo "[ok] ~/.claude-ipc created"
-
 if [[ ":${PATH}:" != *":${HOME}/.local/bin:"* ]]; then
   echo ""
   echo "[!] ~/.local/bin is not in your PATH. Add to your shell profile:"

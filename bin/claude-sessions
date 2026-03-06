@@ -4,7 +4,6 @@ set -euo pipefail
 LAYOUT="tiled"
 SESSION_NAME="claude-multi"
 PROJECTS=()
-SESSIONS_DIR="${HOME}/.claude-ipc"
 
 # Parse args
 for arg in "$@"; do
@@ -61,10 +60,6 @@ for dir in "${PROJECTS[@]}"; do
   SESSION_IDS+=("$sid")
 done
 
-# Clean up old session state
-mkdir -p "$SESSIONS_DIR"
-rm -f "$SESSIONS_DIR"/*.pane
-
 # Kill existing tmux session if present
 tmux kill-session -t "$SESSION_NAME" 2>/dev/null || true
 
@@ -94,11 +89,7 @@ for (( i=0; i<COUNT; i++ )); do
 
   tmux select-pane -t "$pane_target" -T "${sid}" 2>/dev/null || true
 
-  # Write pane mapping for /ipc-trigger
-  echo "$pane_target" > "${SESSIONS_DIR}/${sid}.pane"
-
-  # Set environment and start claude
-  tmux send-keys -t "$pane_target" "export CLAUDE_IPC_SESSION='${sid}'" Enter
+  # Start claude in the target directory
   tmux send-keys -t "$pane_target" "cd '${dir}' && claude" Enter
 done
 
