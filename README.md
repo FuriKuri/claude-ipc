@@ -1,7 +1,7 @@
 # claude-ipc
 
-Inter-Process Communication fuer mehrere Claude Code Sessions in tmux.
-Jede Session arbeitet in ihrem eigenen Projektverzeichnis.
+Inter-process communication for multiple Claude Code sessions in tmux.
+Each session works in its own project directory.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -19,9 +19,9 @@ Jede Session arbeitet in ihrem eigenen Projektverzeichnis.
 │ └──────────────┘  └──────────────┘  └──────────────┘    │
 │                                                          │
 │ ~/.claude-ipc/                                           │
-│ ├── inbox/<session-id>/   JSON-Nachrichten pro Session   │
-│ ├── sessions/             Session-IDs + Projekt + Pane   │
-│ └── processed/            Archivierte Nachrichten        │
+│ ├── inbox/<session-id>/   JSON messages per session      │
+│ ├── sessions/             Session IDs + project + pane   │
+│ └── processed/            Archived messages              │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -35,157 +35,157 @@ bash install.sh
 
 ## Quick Start
 
-### 1. Sessions starten
+### 1. Start sessions
 
-Jedes Verzeichnis wird ein eigenes Pane. Die Session-ID wird vom Verzeichnisnamen abgeleitet.
+Each directory becomes its own pane. The session ID is derived from the directory name.
 
 ```bash
 claude-sessions ~/Projects/api ~/Projects/frontend ~/Projects/shared
 
-# Optionen
+# Options
 claude-sessions --layout=vertical --name=myproject ./backend ./frontend
-claude-sessions .    # Eine Session im aktuellen Verzeichnis
+claude-sessions .    # Single session in current directory
 ```
 
-### 2. Claude Code starten
+### 2. Start Claude Code
 
-In jedem Pane `claude` ausfuehren. `$CLAUDE_IPC_SESSION` ist bereits gesetzt (z.B. `api`, `frontend`, `shared`).
+Run `claude` in each pane. `$CLAUDE_IPC_SESSION` is already set (e.g. `api`, `frontend`, `shared`).
 
-### 3. Kommunizieren
+### 3. Communicate
 
 ```
-# In Session "api":
-/ipc-send frontend Bau eine neue Komponente fuer den /users Endpoint
+# In session "api":
+/ipc-send frontend Build a new component for the /users endpoint
 
-# In Session "frontend":
+# In session "frontend":
 /ipc-read
-# -> Sieht die Aufgabe, arbeitet daran
-/ipc-send api result: UserList-Komponente erstellt in src/components/UserList.tsx
+# -> Sees the task, works on it
+/ipc-send api result: UserList component created in src/components/UserList.tsx
 
-# In Session "api":
+# In session "api":
 /ipc-read
-# -> Sieht das Ergebnis
+# -> Sees the result
 ```
 
 ## Slash Commands
 
-| Command | Beschreibung |
+| Command | Description |
 |---------|-------------|
-| `/ipc-status` | Eigene Session-ID, alle Sessions, Inbox-Status |
-| `/ipc-send <id> <nachricht>` | Nachricht/Aufgabe/Ergebnis senden (Typ wird automatisch erkannt) |
-| `/ipc-read` | Inbox lesen und Nachrichten verarbeiten |
-| `/ipc-ask <id> <frage>` | Frage senden und auf Antwort warten (60s Timeout) |
-| `/ipc-trigger <id> <prompt>` | Prompt direkt in anderes Pane tippen |
+| `/ipc-status` | Show own session ID, all sessions, inbox status |
+| `/ipc-send <id> <message>` | Send message/task/result (type auto-detected) |
+| `/ipc-read` | Read and process inbox messages |
+| `/ipc-ask <id> <question>` | Send question and wait for answer (60s timeout) |
+| `/ipc-trigger <id> <prompt>` | Type prompt directly into another pane |
 
-## CLI-Referenz
+## CLI Reference
 
 ```
 claude-ipc <command> [args]
 
-register <id> [desc]                Session registrieren (auto-detect tmux pane)
-send <to> <type> <payload>          Nachricht senden (task|result|message|query)
-read <id> [--wait] [--timeout=N]    Nachrichten lesen & archivieren
-peek <id>                           Inbox anschauen ohne zu konsumieren
-list [id]                           Alle oder eine Inbox auflisten
-sessions                            Registrierte Sessions anzeigen
-clear <id>                          Inbox leeren
-inject <tmux-target> <text>         Keystrokes in tmux-Pane senden
-watch <id>                          Live-Watch (inotifywait oder Polling)
-reset                               Alles zuruecksetzen
+register <id> [desc]                Register this session (auto-detects tmux pane)
+send <to> <type> <payload>          Send a message (task|result|message|query)
+read <id> [--wait] [--timeout=N]    Read & archive messages
+peek <id>                           Preview inbox without consuming
+list [id]                           List all inboxes or a specific one
+sessions                            Show registered sessions
+clear <id>                          Clear an inbox
+inject <tmux-target> <text>         Send keystrokes to a tmux pane
+watch <id>                          Live-watch an inbox (inotifywait or polling)
+reset                               Clear all IPC state
 ```
 
 ```
 claude-sessions [options] <dir1> [dir2] [dir3] ...
 
---layout=tiled|vertical|horizontal   Pane-Layout (default: tiled)
---name=<name>                        tmux-Session-Name (default: claude-multi)
+--layout=tiled|vertical|horizontal   Pane layout (default: tiled)
+--name=<name>                        tmux session name (default: claude-multi)
 ```
 
-### Umgebungsvariablen
+### Environment Variables
 
-| Variable | Beschreibung |
+| Variable | Description |
 |----------|-------------|
-| `CLAUDE_IPC_SESSION` | Eigene Session-ID (= Verzeichnisname, automatisch gesetzt) |
-| `TMUX_PANE` | Wird beim Registrieren fuer Notifications genutzt |
+| `CLAUDE_IPC_SESSION` | Own session ID (= directory name, set automatically) |
+| `TMUX_PANE` | Used during registration for notifications |
 
-## Kommunikations-Patterns
+## Communication Patterns
 
-### Aufgabe delegieren
+### Delegate a task
 
 ```
-# api gibt frontend eine Aufgabe:
-[api]      /ipc-send frontend task: Erstelle UserProfile-Komponente mit Avatar
+# api assigns a task to frontend:
+[api]      /ipc-send frontend task: Create UserProfile component with avatar
 [frontend] /ipc-read
-[frontend] ... arbeitet ...
-[frontend] /ipc-send api result: Fertig, siehe src/components/UserProfile.tsx
+[frontend] ... works on it ...
+[frontend] /ipc-send api result: Done, see src/components/UserProfile.tsx
 [api]      /ipc-read
 ```
 
-### Frage und Antwort
+### Question and answer
 
 ```
-# frontend fragt api:
-[frontend] /ipc-ask api Welche Felder hat der /users Response?
-# frontend wartet jetzt bis zu 60s auf Antwort
+# frontend asks api:
+[frontend] /ipc-ask api What fields does the /users response have?
+# frontend now waits up to 60s for an answer
 
-# api muss /ipc-read ausfuehren:
+# api must run /ipc-read:
 [api]      /ipc-read
 [api]      /ipc-send frontend { id, name, email, avatar_url }
 
-# frontend bekommt die Antwort automatisch
+# frontend receives the answer automatically
 ```
 
-### Direkt triggern
+### Direct trigger
 
 ```
-# api tippt einen Prompt direkt in shared's Pane:
-[api] /ipc-trigger shared Exportiere alle Types aus src/index.ts
+# api types a prompt directly into shared's pane:
+[api] /ipc-trigger shared Export all types from src/index.ts
 ```
 
-### Paralleles Arbeiten
+### Parallel work
 
 ```
-# api verteilt Aufgaben an verschiedene Projekte:
-[api] /ipc-send frontend task: Implementiere Login-Page
-[api] /ipc-send shared task: Erstelle shared Auth-Types
-[api] ... arbeitet selbst am Auth-Endpoint ...
+# api distributes tasks across projects:
+[api] /ipc-send frontend task: Implement login page
+[api] /ipc-send shared task: Create shared auth types
+[api] ... works on auth endpoint itself ...
 
-# Spaeter Ergebnisse einsammeln:
+# Collect results later:
 [api] /ipc-read
 ```
 
-## Ghostty + tmux Tipps
+## Ghostty + tmux Tips
 
-- **Pane Navigation**: `Ctrl-b` + Pfeiltasten
-- **Pane Zoom**: `Ctrl-b z` zum Vergroessern/Verkleinern
-- **Scrollback**: `Ctrl-b [` fuer Scroll-Modus
+- **Pane navigation**: `Ctrl-b` + arrow keys
+- **Pane zoom**: `Ctrl-b z` to toggle fullscreen
+- **Scrollback**: `Ctrl-b [` for scroll mode
 
 ## Troubleshooting
 
 **"command not found: claude-ipc"**
 ```bash
-export PATH="${HOME}/.local/bin:${PATH}"  # in .zshrc eintragen
+export PATH="${HOME}/.local/bin:${PATH}"  # add to .zshrc
 ```
 
-**Nachrichten kommen nicht an**
+**Messages not arriving**
 ```bash
-claude-ipc sessions    # Sessions registriert?
-claude-ipc peek api    # Nachrichten in Inbox?
+claude-ipc sessions    # Sessions registered?
+claude-ipc peek api    # Messages in inbox?
 ```
 
-**Session-ID herausfinden**
+**Find session ID**
 ```bash
-echo $CLAUDE_IPC_SESSION   # im Terminal
+echo $CLAUDE_IPC_SESSION   # in terminal
 /ipc-status                # in Claude Code
 ```
 
-**tmux-Session existiert schon**
+**tmux session already exists**
 ```bash
 tmux kill-session -t claude-multi
 ```
 
-## Voraussetzungen
+## Requirements
 
 - Bash 4+
 - tmux
-- Optional: `inotify-tools` (fuer `watch` mit inotifywait statt Polling)
+- Optional: `inotify-tools` (for `watch` with inotifywait instead of polling)

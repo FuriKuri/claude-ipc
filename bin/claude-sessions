@@ -117,11 +117,11 @@ tmux send-keys -t "${SESSION_NAME}:0.0" "cat <<'CHEAT'
 Sessions:
 ${id_list}
 Slash commands:
-  /ipc-status            Sessions & Inboxen anzeigen
-  /ipc-send <id> <msg>   Nachricht/Aufgabe senden
-  /ipc-read              Inbox lesen
-  /ipc-ask <id> <frage>  Frage stellen, auf Antwort warten
-  /ipc-trigger <id> <p>  Prompt in anderes Pane tippen
+  /ipc-status            Show sessions & inboxes
+  /ipc-send <id> <msg>   Send message/task
+  /ipc-read              Read inbox
+  /ipc-ask <id> <q>      Ask and wait for answer
+  /ipc-trigger <id> <p>  Type prompt into another pane
 
 CLI: claude-ipc send|read|peek|list|sessions|clear|watch|reset
 
