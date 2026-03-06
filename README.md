@@ -1,10 +1,9 @@
 # claude-ipc
 
-Run multiple Claude Code sessions in tmux and let them trigger each other via keystrokes.
+Let Claude Code sessions in tmux discover and trigger each other — no launcher required.
 
 ```
-┌──────────────────────────────────────────────────┐
-│ tmux: claude-multi                               │
+┌─ tmux ──────────────────────────────────────────┐
 │                                                  │
 │ ┌─────────────┐  ┌─────────────┐                 │
 │ │ api         │  │ frontend    │                 │
@@ -14,7 +13,7 @@ Run multiple Claude Code sessions in tmux and let them trigger each other via ke
 │ │ /ipc-trigger frontend ──────┼─> tmux send-keys│
 │ └─────────────┘  └─────────────┘                 │
 │                                                  │
-│ Discovery: tmux list-panes (no state files)      │
+│ Discovery: tmux list-panes -a (all sessions)     │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -28,67 +27,57 @@ bash install.sh
 
 ## Usage
 
-### Start sessions
+Any Claude Code session running inside tmux is automatically discoverable. No special launcher needed — just open tmux panes, start `claude`, and go.
 
-Each directory becomes a tmux pane with Claude Code running in it. Session IDs are derived from directory names.
+### Trigger another session
+
+Inside any Claude session, use `/ipc-trigger` to send a prompt to another session's pane:
+
+```
+/ipc-trigger frontend Build a UserList component for the /users endpoint
+/ipc-trigger api Add rate limiting to the auth endpoints
+```
+
+Without arguments, `/ipc-trigger` lists all discoverable sessions.
+
+### Optional: Batch launcher
+
+`claude-sessions` is a convenience script to create multiple panes at once:
 
 ```bash
 claude-sessions ~/Projects/api ~/Projects/frontend ~/Projects/shared
 
 # Options
 claude-sessions --layout=vertical ./backend ./frontend
-claude-sessions .    # Single session
 ```
 
-### Trigger another session
-
-Inside any Claude session, use the `/ipc-trigger` slash command to type a prompt into another session's pane:
+### CLI
 
 ```
-/ipc-trigger frontend Build a UserList component for the /users endpoint
-/ipc-trigger api Add rate limiting to the auth endpoints
-/ipc-trigger shared Export all types from src/index.ts
+claude-ipc list                      # List all other Claude panes
+claude-ipc trigger <id> <prompt>     # Send prompt by directory basename
+claude-ipc trigger-pane <id> <prompt> # Send prompt by tmux pane ID
 ```
-
-Without arguments, `/ipc-trigger` lists available sessions.
 
 ## How it works
 
-1. `claude-sessions` creates tmux panes, each running Claude Code in its own directory
-2. `/ipc-trigger` discovers sibling panes via `tmux list-panes`, matches by directory basename, and uses `tmux send-keys`
-3. No state files, no message queues, no polling — just tmux and keystrokes
-
-## CLI Reference
-
-```
-claude-sessions [options] <dir1> [dir2] [dir3] ...
-
---layout=tiled|vertical|horizontal   Pane layout (default: tiled)
---name=<name>                        tmux session name (default: claude-multi)
-```
-
-## Ghostty + tmux Tips
-
-- **Pane navigation**: `Ctrl-b` + arrow keys
-- **Pane zoom**: `Ctrl-b z` to toggle fullscreen
-- **Scrollback**: `Ctrl-b [` for scroll mode
+1. `claude-ipc list` scans all tmux panes across all sessions/windows via `tmux list-panes -a`
+2. Filters for panes running Claude, identifies them by directory basename
+3. `claude-ipc trigger` sends keystrokes via `tmux send-keys`
+4. No state files, no message queues, no polling — just tmux
 
 ## Troubleshooting
 
-**"command not found: claude-sessions"**
+**"no tmux server found"**
+Claude sessions must run inside tmux.
+
+**"no Claude pane found"**
 ```bash
-export PATH="${HOME}/.local/bin:${PATH}"  # add to .zshrc
+claude-ipc list    # check what's discoverable
 ```
 
-**"/ipc-trigger: session not found"**
-```bash
-tmux list-panes -F '#{pane_current_path}'    # check panes in current window
-```
-
-**tmux session already exists**
-```bash
-tmux kill-session -t claude-multi
-```
+**Multiple panes with same directory name**
+`claude-ipc` will list them with pane IDs. Use `trigger-pane` with the specific ID.
 
 ## Requirements
 
