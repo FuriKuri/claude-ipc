@@ -3,13 +3,13 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-claude-ipc — Discover and trigger sibling Claude sessions in tmux
+tmux-ipc — Discover and trigger other tmux panes
 
 Usage:
-  claude-ipc list                      List all other Claude panes
-  claude-ipc trigger <id> <prompt>     Send a prompt to another pane by directory basename
+  tmux-ipc list                      List all other panes
+  tmux-ipc trigger <id> <prompt>     Send a prompt to another pane by directory basename
 
-Discovers all tmux panes running Claude across all sessions and windows.
+Discovers all tmux panes across all sessions and windows.
 Panes are identified by the basename of their working directory.
 EOF
   exit 1
@@ -70,7 +70,7 @@ trigger_pane() {
   matches=$(find_target_panes "$target")
 
   if [ -z "$matches" ]; then
-    echo "Error: no Claude pane found for '$target'"
+    echo "Error: no pane found for '$target'"
     echo ""
     echo "Available:"
     list_panes
@@ -90,7 +90,7 @@ trigger_pane() {
     done
     echo ""
     echo "Use the full pane ID to target a specific one:"
-    echo "  claude-ipc trigger-pane <pane_id> <prompt>"
+    echo "  tmux-ipc trigger-pane <pane_id> <prompt>"
     exit 1
   fi
 
@@ -117,11 +117,11 @@ shift 2>/dev/null || true
 case "$cmd" in
   list)         list_panes ;;
   trigger)
-    [ $# -lt 2 ] && { echo "Usage: claude-ipc trigger <id> <prompt>"; exit 1; }
+    [ $# -lt 2 ] && { echo "Usage: tmux-ipc trigger <id> <prompt>"; exit 1; }
     trigger_pane "$@"
     ;;
   trigger-pane)
-    [ $# -lt 2 ] && { echo "Usage: claude-ipc trigger-pane <pane_id> <prompt>"; exit 1; }
+    [ $# -lt 2 ] && { echo "Usage: tmux-ipc trigger-pane <pane_id> <prompt>"; exit 1; }
     trigger_by_pane_id "$@"
     ;;
   *)            usage ;;
