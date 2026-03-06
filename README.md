@@ -1,6 +1,6 @@
 # tmux-ipc
 
-A slash command that lets AI coding agents (Claude Code, OpenCode, Aider, ...) discover and trigger other tmux panes via keystrokes.
+A slash command that lets AI coding agents discover and trigger other tmux panes via keystrokes. Works with Claude Code, Copilot CLI, OpenCode, and others.
 
 ```
 ┌─ tmux ──────────────────────────────────────────┐
@@ -19,10 +19,27 @@ A slash command that lets AI coding agents (Claude Code, OpenCode, Aider, ...) d
 
 ## Installation
 
-Copy the slash command to your Claude Code config:
+One command — pick your agent:
 
+**Claude Code**
 ```bash
-cp commands/ipc-trigger.md ~/.claude/commands/
+curl -o ~/.claude/commands/ipc-trigger.md https://raw.githubusercontent.com/FuriKuri/tmux-ipc/main/commands/claude/ipc-trigger.md
+```
+
+**OpenCode**
+```bash
+curl -o ~/.config/opencode/commands/ipc-trigger.md https://raw.githubusercontent.com/FuriKuri/tmux-ipc/main/commands/opencode/ipc-trigger.md
+```
+
+**Copilot CLI**
+```bash
+curl --create-dirs -o ~/.copilot/agents/ipc-trigger.md https://raw.githubusercontent.com/FuriKuri/tmux-ipc/main/commands/copilot/ipc-trigger.md
+```
+
+Or clone and copy manually:
+```bash
+git clone https://github.com/FuriKuri/tmux-ipc.git
+cp tmux-ipc/commands/claude/ipc-trigger.md ~/.claude/commands/
 ```
 
 ## Usage
