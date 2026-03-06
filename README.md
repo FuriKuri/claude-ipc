@@ -1,6 +1,6 @@
 # tmux-ipc
 
-A slash command that lets AI coding agents discover and trigger other tmux panes via keystrokes. Works with Claude Code, Copilot CLI, OpenCode, and others.
+A Claude Code slash command to discover and trigger other tmux panes via keystrokes.
 
 ```
 ┌─ tmux ──────────────────────────────────────────┐
@@ -8,7 +8,7 @@ A slash command that lets AI coding agents discover and trigger other tmux panes
 │ ┌─────────────┐  ┌─────────────┐                 │
 │ │ api         │  │ frontend    │                 │
 │ │ ~/proj/api  │  │ ~/proj/front│                 │
-│ │ Claude Code │  │ OpenCode    │                 │
+│ │ Claude Code │  │ Claude Code │                 │
 │ │             │  │             │                 │
 │ │ /ipc-trigger frontend ──────┼─> tmux send-keys│
 │ └─────────────┘  └─────────────┘                 │
@@ -19,27 +19,8 @@ A slash command that lets AI coding agents discover and trigger other tmux panes
 
 ## Installation
 
-One command — pick your agent:
-
-**Claude Code**
 ```bash
-curl -o ~/.claude/commands/ipc-trigger.md https://raw.githubusercontent.com/FuriKuri/tmux-ipc/main/commands/claude/ipc-trigger.md
-```
-
-**OpenCode**
-```bash
-curl -o ~/.config/opencode/commands/ipc-trigger.md https://raw.githubusercontent.com/FuriKuri/tmux-ipc/main/commands/opencode/ipc-trigger.md
-```
-
-**Copilot CLI**
-```bash
-curl --create-dirs -o ~/.copilot/agents/ipc-trigger.md https://raw.githubusercontent.com/FuriKuri/tmux-ipc/main/commands/copilot/ipc-trigger.md
-```
-
-Or clone and copy manually:
-```bash
-git clone https://github.com/FuriKuri/tmux-ipc.git
-cp tmux-ipc/commands/claude/ipc-trigger.md ~/.claude/commands/
+curl -o ~/.claude/commands/ipc-trigger.md https://raw.githubusercontent.com/FuriKuri/tmux-ipc/main/commands/ipc-trigger.md
 ```
 
 ## Usage
