@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LAYOUT="tiled"
+SESSION_NAME="claude-multi"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECTS=()
+
+# Parse args
+for arg in "$@"; do
+  case "$arg" in
+    --layout=*)  LAYOUT="${arg#--layout=}" ;;
+    --name=*)    SESSION_NAME="${arg#--name=}" ;;
+    --help|-h)
+      cat <<'EOF'
+claude-sessions — Start multiple Claude Code sessions in tmux
+
+Usage: claude-sessions [options] <dir1> [dir2] [dir3] ...
+
+Each directory gets its own tmux pane with a registered IPC session.
+Session IDs are derived from directory names (e.g. ~/Projects/api → api).
+
+Options:
+  --layout=tiled|vertical|horizontal   Pane layout (default: tiled)
+  --name=<name>                        tmux session name (default: claude-multi)
+
+Examples:
+  claude-sessions ~/Projects/api ~/Projects/frontend
+  claude-sessions --layout=vertical ./backend ./frontend ./shared
+  claude-sessions .    # Single session in current directory
+EOF
+      exit 0
+      ;;
+    -*)  echo "Unknown option: $arg"; exit 1 ;;
+    *)   PROJECTS+=("$arg") ;;
+  esac
+done
+
+if (( ${#PROJECTS[@]} == 0 )); then
+  echo "Usage: claude-sessions [options] <dir1> [dir2] ..."
+  echo "Run 'claude-sessions --help' for details."
+  exit 1
+fi
+
+COUNT=${#PROJECTS[@]}
+
+# Resolve directories and derive session IDs
+RESOLVED_DIRS=()
+SESSION_IDS=()
+for dir in "${PROJECTS[@]}"; do
+  resolved="$(cd "$dir" 2>/dev/null && pwd)" || { echo "Directory not found: $dir"; exit 1; }
+  RESOLVED_DIRS+=("$resolved")
+  # Session ID = basename of directory
+  sid="$(basename "$resolved")"
+  # Deduplicate by appending number if needed
+  count=0
+  original_sid="$sid"
+  while printf '%s\n' "${SESSION_IDS[@]}" 2>/dev/null | grep -qx "$sid"; do
+    (( count++ ))
+    sid="${original_sid}${count}"
+  done
+  SESSION_IDS+=("$sid")
+done
+
+# Ensure IPC directories exist
+mkdir -p "${HOME}/.claude-ipc"/{inbox,sessions,processed}
+
+# Kill existing session if present
+tmux kill-session -t "$SESSION_NAME" 2>/dev/null || true
+
+# Create session with first pane
+tmux new-session -d -s "$SESSION_NAME" -x 200 -y 50
+
+# Create additional panes
+for (( i=1; i<COUNT; i++ )); do
+  case "$LAYOUT" in
+    vertical)   tmux split-window -t "$SESSION_NAME" -v ;;
+    horizontal) tmux split-window -t "$SESSION_NAME" -h ;;
+    *)          tmux split-window -t "$SESSION_NAME" ;;
+  esac
+done
+
+# Apply layout
+tmux select-layout -t "$SESSION_NAME" "$LAYOUT" 2>/dev/null || tmux select-layout -t "$SESSION_NAME" tiled
+
+# Enable pane border status
+tmux set-option -t "$SESSION_NAME" pane-border-status top 2>/dev/null || true
+tmux set-option -t "$SESSION_NAME" pane-border-format " #{pane_index}: #{pane_title} " 2>/dev/null || true
+
+# Configure each pane
+for (( i=0; i<COUNT; i++ )); do
+  sid="${SESSION_IDS[$i]}"
+  dir="${RESOLVED_DIRS[$i]}"
+  pane_target="${SESSION_NAME}:0.${i}"
+
+  # Set pane title
+  tmux select-pane -t "$pane_target" -T "${sid}" 2>/dev/null || true
+
+  # Set environment, cd to project, register
+  tmux send-keys -t "$pane_target" "export CLAUDE_IPC_SESSION='${sid}'" Enter
+  tmux send-keys -t "$pane_target" "export PATH=\"${SCRIPT_DIR}:\${PATH}\"" Enter
+  tmux send-keys -t "$pane_target" "cd '${dir}'" Enter
+  tmux send-keys -t "$pane_target" "claude-ipc register '${sid}' '${dir}'" Enter
+  tmux send-keys -t "$pane_target" "clear" Enter
+done
+
+# Print cheat sheet in first pane
+id_list=""
+for (( i=0; i<COUNT; i++ )); do
+  id_list+="  ${SESSION_IDS[$i]}  →  ${RESOLVED_DIRS[$i]}"$'\n'
+done
+
+tmux send-keys -t "${SESSION_NAME}:0.0" "cat <<'CHEAT'
+
+=== Claude IPC ===
+
+Sessions:
+${id_list}
+Slash commands:
+  /ipc-status            Sessions & Inboxen anzeigen
+  /ipc-send <id> <msg>   Nachricht/Aufgabe senden
+  /ipc-read              Inbox lesen
+  /ipc-ask <id> <frage>  Frage stellen, auf Antwort warten
+  /ipc-trigger <id> <p>  Prompt in anderes Pane tippen
+
+CLI: claude-ipc send|read|peek|list|sessions|clear|watch|reset
+
+CHEAT" Enter
+
+echo "Starting '${SESSION_NAME}' with ${COUNT} panes..."
+tmux attach -t "$SESSION_NAME"
