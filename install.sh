@@ -9,8 +9,9 @@ echo ""
 # Install launcher
 mkdir -p "${HOME}/.local/bin"
 cp "${SCRIPT_DIR}/bin/claude-sessions" "${HOME}/.local/bin/claude-sessions"
-chmod +x "${HOME}/.local/bin/claude-sessions"
-echo "[ok] claude-sessions installed to ~/.local/bin"
+cp "${SCRIPT_DIR}/bin/claude-ipc" "${HOME}/.local/bin/claude-ipc"
+chmod +x "${HOME}/.local/bin/claude-sessions" "${HOME}/.local/bin/claude-ipc"
+echo "[ok] claude-sessions and claude-ipc installed to ~/.local/bin"
 
 # Install slash command
 mkdir -p "${HOME}/.claude/commands"

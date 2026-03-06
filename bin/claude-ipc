@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+claude-ipc — Discover and trigger sibling Claude sessions in tmux
+
+Usage:
+  claude-ipc list              List other panes in the current tmux window
+  claude-ipc trigger <id> <prompt>   Send a prompt to another pane by directory basename
+EOF
+  exit 1
+}
+
+list_panes() {
+  local self
+  self=$(tmux display-message -p '#{pane_id}')
+  tmux list-panes -F '#{pane_id} #{pane_current_path}' | while read -r id path; do
+    [ "$id" = "$self" ] && continue
+    echo "$(basename "$path")  ->  $path"
+  done
+}
+
+trigger_pane() {
+  local target="$1"
+  shift
+  local prompt="$*"
+  local self
+  self=$(tmux display-message -p '#{pane_id}')
+
+  local pane_id
+  pane_id=$(tmux list-panes -F '#{pane_id} #{pane_current_path}' | while read -r id path; do
+    [ "$id" = "$self" ] && continue
+    if [ "$(basename "$path")" = "$target" ]; then
+      echo "$id"
+      break
+    fi
+  done)
+
+  if [ -z "$pane_id" ]; then
+    echo "Error: no pane found for '$target'"
+    echo "Available:"
+    list_panes
+    exit 1
+  fi
+
+  tmux send-keys -t "$pane_id" "$prompt" Enter
+  echo "Sent to $target ($pane_id)"
+}
+
+cmd="${1:-}"
+shift 2>/dev/null || true
+
+case "$cmd" in
+  list)    list_panes ;;
+  trigger)
+    [ $# -lt 2 ] && { echo "Usage: claude-ipc trigger <id> <prompt>"; exit 1; }
+    trigger_pane "$@"
+    ;;
+  *)       usage ;;
+esac
