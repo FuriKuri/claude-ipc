@@ -4,14 +4,33 @@ allowed-tools:
 ---
 Type a prompt directly into another tmux pane.
 
-Parse $ARGUMENTS: first word is the target session ID (directory basename), the rest is the prompt to type.
+Parse $ARGUMENTS: first word is the target (directory basename), the rest is the prompt.
 
-If no arguments given, list available sessions: `tmux-ipc list`
+**If no arguments given**, list available panes:
+```bash
+SELF=$(tmux display-message -p '#{pane_id}' 2>/dev/null || echo "")
+tmux list-panes -a -F '#{pane_id} #{pane_current_path}' | while read -r id path; do
+  [ "$id" = "$SELF" ] && continue
+  echo "$(basename "$path")  ->  $path  ($id)"
+done
+```
 
-To send a prompt: `tmux-ipc trigger <session-id> <prompt>`
+**If arguments given**, send prompt to the matching pane:
+```bash
+TARGET="<first word from arguments>"
+PROMPT="<rest of arguments>"
+SELF=$(tmux display-message -p '#{pane_id}' 2>/dev/null || echo "")
+PANE_ID=$(tmux list-panes -a -F '#{pane_id} #{pane_current_path}' | while read -r id path; do
+  [ "$id" = "$SELF" ] && continue
+  [ "$(basename "$path")" = "$TARGET" ] && echo "$id" && break
+done)
+if [ -z "$PANE_ID" ]; then
+  echo "Error: no pane found for '$TARGET'"
+  exit 1
+fi
+tmux send-keys -t "$PANE_ID" "$PROMPT" Enter
+```
 
-If multiple panes match, `tmux-ipc` will show them. Use `tmux-ipc trigger-pane <pane_id> <prompt>` to target a specific one.
-
-Discovers all panes across all tmux sessions and windows automatically.
+If multiple panes match, list them all with pane IDs and ask the user which one to target.
 
 WARNING: Only use when the target pane is idle and ready for input.
